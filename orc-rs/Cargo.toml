@@ -1,6 +1,12 @@
 [package]
 name = "orc-rs"
 version = "0.1.0"
+license = "Apache-2.0"
+description = "Rust implementation of Apache ORC"
+authors = ["Ian Joiner <iajoiner809@gmail.com"]
+keywords = [ "analytics", "orc" ]
+homepage = "https://github.com/iajoiner/orc-rs"
+repository = "https://github.com/iajoiner/orc-rs"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
