@@ -1,4 +1,8 @@
 mod common;
+mod error;
+// mod orcfile;
+// mod reader;
+// mod writer;
 
 #[cfg(test)]
 mod tests {

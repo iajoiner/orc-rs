@@ -1,6 +1,4 @@
 //! Includes all the shared enum for the entire project
-use std::u32;
-
 pub struct FileVersion {
     pub major_version: u32,
     pub minor_version: u32,
