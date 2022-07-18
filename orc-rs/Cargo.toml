@@ -15,6 +15,7 @@ edition = "2021"
 bytes = "1"
 prost = "0.10"
 prost-types = "0.10"
+thiserror = "1.0"
 
 [build-dependencies]
 prost-build = { version = "0.10" }

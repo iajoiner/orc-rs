@@ -1,5 +1,7 @@
+#![warn(missing_docs)]
 mod common;
 mod error;
+mod datatype;
 // mod orcfile;
 // mod reader;
 // mod writer;
