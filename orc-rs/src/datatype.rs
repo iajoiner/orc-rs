@@ -103,7 +103,7 @@ pub struct DataType {
     pub maximum_column_id: usize,
     pub thin_type: ThinType,
     attributes: HashMap<String, String>,
-    pub subtype_count: usize
+    pub subtype_count: usize,
 }
 
 /// ORC fields
@@ -118,41 +118,35 @@ pub struct Field {
 impl DataType {
     pub fn get_subtype(&self, child_id: usize) -> OrcResult<Box<DataType>> {
         match &(self.thin_type) {
-            ThinType::List(s) => {
-                match child_id {
-                    0 => Ok(s.clone()),
-                    _ => Err(OrcError::DataTypeError(
-                        "Lists have only one subtype.".to_string()
-                    ))
-                }
+            ThinType::List(s) => match child_id {
+                0 => Ok(s.clone()),
+                _ => Err(OrcError::DataTypeError(
+                    "Lists have only one subtype.".to_string(),
+                )),
             },
-            ThinType::Map(k, v) => {
-                match child_id {
-                    0 => Ok(k.clone()),
-                    1 => Ok(v.clone()),
-                    _ => Err(OrcError::DataTypeError(
-                        "Maps have only two subtypes.".to_string()
-                    ))
-                }
+            ThinType::Map(k, v) => match child_id {
+                0 => Ok(k.clone()),
+                1 => Ok(v.clone()),
+                _ => Err(OrcError::DataTypeError(
+                    "Maps have only two subtypes.".to_string(),
+                )),
             },
             ThinType::Struct(f) => {
                 if child_id < self.subtype_count {
                     Ok(f[child_id].datatype.clone())
-                }
-                else {
+                } else {
                     Err(OrcError::DataTypeError("Index out of bound.".to_string()))
                 }
-            },
+            }
             ThinType::Union(s) => {
                 if child_id < self.subtype_count {
                     Ok(s[child_id].clone())
-                }
-                else {
+                } else {
                     Err(OrcError::DataTypeError("Index out of bound.".to_string()))
                 }
-            },
+            }
             _ => Err(OrcError::DataTypeError(
-                "Primitive types do not have subtypes.".to_string()
+                "Primitive types do not have subtypes.".to_string(),
             )),
         }
     }
@@ -162,13 +156,12 @@ impl DataType {
             ThinType::Struct(f) => {
                 if child_id < self.subtype_count {
                     Ok(f[child_id].name.clone())
-                }
-                else {
+                } else {
                     Err(OrcError::DataTypeError("Index out of bound.".to_string()))
                 }
-            },
+            }
             _ => Err(OrcError::DataTypeError(
-                "Non-structs do not have fieldnames.".to_string()
+                "Non-structs do not have fieldnames.".to_string(),
             )),
         }
     }
@@ -177,7 +170,7 @@ impl DataType {
         match &(self.thin_type) {
             ThinType::Char(max_length) | ThinType::Varchar(max_length) => Ok(*max_length),
             _ => Err(OrcError::DataTypeError(
-                "DataTypes other than Char or Varchar do not have maximum length.".to_string()
+                "DataTypes other than Char or Varchar do not have maximum length.".to_string(),
             )),
         }
     }
@@ -186,7 +179,7 @@ impl DataType {
         match &(self.thin_type) {
             ThinType::Decimal(precision, _) => Ok(*precision),
             _ => Err(OrcError::DataTypeError(
-                "DataTypes other than Decimal do not have precision.".to_string()
+                "DataTypes other than Decimal do not have precision.".to_string(),
             )),
         }
     }
@@ -195,7 +188,7 @@ impl DataType {
         match &(self.thin_type) {
             ThinType::Decimal(_, scale) => Ok(*scale),
             _ => Err(OrcError::DataTypeError(
-                "DataTypes other than Decimal do not have scale.".to_string()
+                "DataTypes other than Decimal do not have scale.".to_string(),
             )),
         }
     }
@@ -206,7 +199,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_() {
-
+    fn test_thin_type_kind_simple() {
+        let thin_type = ThinType::Boolean;
+        assert_eq!(thin_type.get_kind(), TypeKind::Boolean);
     }
 }

@@ -45,7 +45,7 @@ pub enum StreamKind {
     Secondary = 5,
     RowIndex = 6,
     BloomFilter = 7,
-    BloomFilterUtf8 = 8
+    BloomFilterUtf8 = 8,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -53,7 +53,7 @@ pub enum ColumnEncodingKind {
     Direct = 0,
     Dictionary = 1,
     DirectV2 = 2,
-    DictionaryV2 = 3
+    DictionaryV2 = 3,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
