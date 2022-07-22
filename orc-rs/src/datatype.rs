@@ -16,10 +16,10 @@
 // under the License.
 
 use crate::error::{OrcError, OrcResult};
-use std::collections::HashMap;
+use std::{collections::HashMap, convert::TryFrom};
 
-/// ORC data typekinds
-/// They differ from datatypes in the sense that List(Int) and List(Long) are of the same typekind,
+/// ORC data TypeKinds
+/// They differ from ThinTypes in the sense that List(Int) and List(Long) are of the same typekind,
 /// List while having different types.
 ///
 /// See https://orc.apache.org/specification/ORCv1/ for more details.
@@ -46,6 +46,33 @@ pub enum TypeKind {
     TimestampInstant = 18,
 }
 
+impl TypeKind {
+    // Definition of primitiveness:
+    // Does ThinType exclusively depend on TypeKind?
+    // For example Boolean is primitive while List and Decimal aren't
+    pub fn is_primitive(&self) -> bool {
+        !matches!(
+            self,
+            TypeKind::List
+                | TypeKind::Map
+                | TypeKind::Struct
+                | TypeKind::Union
+                | TypeKind::Decimal
+                | TypeKind::Varchar
+                | TypeKind::Char
+        )
+    }
+
+    // Is char or varchar?
+    pub fn is_char(&self) -> bool {
+        matches!(
+            self,
+            TypeKind::Char
+                | TypeKind::Varchar
+        )
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ThinType {
     Boolean,
@@ -69,9 +96,9 @@ pub enum ThinType {
     TimestampInstant,
 }
 
-impl ThinType {
-    pub fn get_kind(&self) -> TypeKind {
-        match self {
+impl From<ThinType> for TypeKind {
+    fn from(value: ThinType) -> Self {
+        match value {
             ThinType::Boolean => TypeKind::Boolean,
             ThinType::Byte => TypeKind::Byte,
             ThinType::Short => TypeKind::Short,
@@ -95,12 +122,36 @@ impl ThinType {
     }
 }
 
+// Only works for primitives
+impl TryFrom<TypeKind> for ThinType {
+    type Error = OrcError;
+    fn try_from(value: TypeKind) -> OrcResult<Self> {
+        match value {
+            TypeKind::Boolean => Ok(ThinType::Boolean),
+            TypeKind::Byte => Ok(ThinType::Byte),
+            TypeKind::Short => Ok(ThinType::Short),
+            TypeKind::Int => Ok(ThinType::Int),
+            TypeKind::Long => Ok(ThinType::Long),
+            TypeKind::Float => Ok(ThinType::Float),
+            TypeKind::Double => Ok(ThinType::Double),
+            TypeKind::String => Ok(ThinType::String),
+            TypeKind::Binary => Ok(ThinType::Binary),
+            TypeKind::Timestamp => Ok(ThinType::Timestamp),
+            TypeKind::Date => Ok(ThinType::Date),
+            TypeKind::TimestampInstant => Ok(ThinType::TimestampInstant),
+            _ => Err(OrcError::DataTypeError(
+                "Can not convert a non-primitive TypeKind to a ThinType".to_string(),
+            )),
+        }
+    }
+}
+
 /// ORC data types
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct DataType {
-    parent: Box<DataType>,
-    pub column_id: usize,
-    pub maximum_column_id: usize,
+    parent: Box<Option<DataType>>,
+    pub column_id: Option<usize>,
+    pub maximum_column_id: Option<usize>,
     pub thin_type: ThinType,
     attributes: HashMap<String, String>,
     pub subtype_count: usize,
@@ -194,13 +245,105 @@ impl DataType {
     }
 }
 
+pub fn create_primitive_type(kind: &TypeKind) -> OrcResult<Box<DataType>> {
+    if kind.is_primitive() {
+        Ok(Box::new(DataType {
+            parent: Box::new(None),
+            column_id: None,
+            maximum_column_id: None,
+            thin_type: ThinType::try_from(*kind)?,
+            attributes: HashMap::new(),
+            subtype_count: 0,
+        }))
+    } else {
+        Err(OrcError::DataTypeError(
+            "The TypeKind is not primitive".to_string(),
+        ))
+    }
+}
+
+pub fn create_char_type(kind: &TypeKind, max_length: u64) -> OrcResult<Box<DataType>> {
+    let thin_type_result = match kind {
+        TypeKind::Char => Ok(ThinType::Char(max_length)),
+        TypeKind::Varchar => Ok(ThinType::Varchar(max_length)),
+        _ => Err(OrcError::DataTypeError(
+            "The TypeKind is not Char or Varchar".to_string(),
+        ))
+    };
+    Ok(Box::new(DataType {
+        parent: Box::new(None),
+        column_id: None,
+        maximum_column_id: None,
+        thin_type: thin_type_result?,
+        attributes: HashMap::new(),
+        subtype_count: 0,
+    }))
+}
+
+pub fn create_decimal_type(kind: &TypeKind, precision: u64, scale: u64) -> OrcResult<Box<DataType>> {
+    match kind {
+        TypeKind::Decimal => {
+            let thin_type = ThinType::Decimal(precision, scale);
+            Ok(Box::new(DataType {
+                parent: Box::new(None),
+                column_id: None,
+                maximum_column_id: None,
+                thin_type: thin_type,
+                attributes: HashMap::new(),
+                subtype_count: 0,
+            }))
+        },
+        _ => Err(OrcError::DataTypeError(
+            "The TypeKind is not decimal".to_string(),
+        ))
+    };
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn test_thin_type_kind_simple() {
+    fn test_type_kind_primitive() {
+        let type_kind = TypeKind::Boolean;
+        assert!(type_kind.is_primitive());
+
+        let type_kind = TypeKind::List;
+        assert!(!type_kind.is_primitive());
+    }
+
+    #[test]
+    fn test_type_kind_char() {
+        let type_kind = TypeKind::Char;
+        assert!(type_kind.is_char());
+
+        let type_kind = TypeKind::List;
+        assert!(!type_kind.is_char());
+    }
+
+    #[test]
+    fn test_type_kind_from_thin_type() {
         let thin_type = ThinType::Boolean;
-        assert_eq!(thin_type.get_kind(), TypeKind::Boolean);
+        assert_eq!(TypeKind::from(thin_type), TypeKind::Boolean);
+
+        let thin_type = ThinType::Decimal(26, 6);
+        assert_eq!(TypeKind::from(thin_type), TypeKind::Decimal);
+
+        let entry_datatype = create_primitive_type(&TypeKind::Long).unwrap();
+        let list_thin_type = ThinType::List(entry_datatype);
+        assert_eq!(TypeKind::from(list_thin_type), TypeKind::List);
+    }
+
+    #[test]
+    fn test_thin_type_from_type_kind() {
+        let type_kind = TypeKind::Boolean;
+        assert_eq!(ThinType::try_from(type_kind).unwrap(), ThinType::Boolean);
+    }
+
+    #[test]
+    #[should_panic(expected = "Can not convert a non-primitive TypeKind to a ThinType")]
+    fn test_thin_type_from_type_kind_panic() {
+        let type_kind = TypeKind::Struct;
+        ThinType::try_from(type_kind).unwrap();
     }
 }
