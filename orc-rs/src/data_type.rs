@@ -65,11 +65,7 @@ impl TypeKind {
 
     // Is char or varchar?
     pub fn is_char(&self) -> bool {
-        matches!(
-            self,
-            TypeKind::Char
-                | TypeKind::Varchar
-        )
+        matches!(self, TypeKind::Char | TypeKind::Varchar)
     }
 }
 
@@ -167,6 +163,17 @@ pub struct Field {
 }
 
 impl DataType {
+    pub fn new(thin_type: &ThinType) -> Self {
+        DataType {
+            parent: Box::new(None),
+            column_id: None,
+            maximum_column_id: None,
+            thin_type: thin_type.clone(),
+            attributes: HashMap::new(),
+            subtype_count: 0,
+        }
+    }
+
     pub fn get_subtype(&self, child_id: usize) -> OrcResult<Box<DataType>> {
         match &(self.thin_type) {
             ThinType::List(s) => match child_id {
@@ -245,16 +252,10 @@ impl DataType {
     }
 }
 
+/// Create numerous DataTypes
 pub fn create_primitive_type(kind: &TypeKind) -> OrcResult<Box<DataType>> {
     if kind.is_primitive() {
-        Ok(Box::new(DataType {
-            parent: Box::new(None),
-            column_id: None,
-            maximum_column_id: None,
-            thin_type: ThinType::try_from(*kind)?,
-            attributes: HashMap::new(),
-            subtype_count: 0,
-        }))
+        Ok(Box::new(DataType::new(&ThinType::try_from(*kind)?)))
     } else {
         Err(OrcError::DataTypeError(
             "The TypeKind is not primitive".to_string(),
@@ -268,35 +269,50 @@ pub fn create_char_type(kind: &TypeKind, max_length: u64) -> OrcResult<Box<DataT
         TypeKind::Varchar => Ok(ThinType::Varchar(max_length)),
         _ => Err(OrcError::DataTypeError(
             "The TypeKind is not Char or Varchar".to_string(),
-        ))
+        )),
     };
-    Ok(Box::new(DataType {
-        parent: Box::new(None),
-        column_id: None,
-        maximum_column_id: None,
-        thin_type: thin_type_result?,
-        attributes: HashMap::new(),
-        subtype_count: 0,
-    }))
+    Ok(Box::new(DataType::new(&thin_type_result?)))
 }
 
-pub fn create_decimal_type(kind: &TypeKind, precision: u64, scale: u64) -> OrcResult<Box<DataType>> {
+pub fn create_decimal_type(
+    kind: &TypeKind,
+    precision: u64,
+    scale: u64,
+) -> OrcResult<Box<DataType>> {
     match kind {
         TypeKind::Decimal => {
             let thin_type = ThinType::Decimal(precision, scale);
-            Ok(Box::new(DataType {
-                parent: Box::new(None),
-                column_id: None,
-                maximum_column_id: None,
-                thin_type: thin_type,
-                attributes: HashMap::new(),
-                subtype_count: 0,
-            }))
-        },
+            Ok(Box::new(DataType::new(&thin_type)))
+        }
         _ => Err(OrcError::DataTypeError(
             "The TypeKind is not decimal".to_string(),
-        ))
-    };
+        )),
+    }
+}
+
+// Create new struct type with no fields
+pub fn create_struct_type() -> OrcResult<Box<DataType>> {
+    let thin_type = ThinType::Struct(Vec::new());
+    Ok(Box::new(DataType::new(&thin_type)))
+}
+
+pub fn create_list_type(element_type: &Box<DataType>) -> OrcResult<Box<DataType>> {
+    let thin_type = ThinType::List(element_type.clone());
+    Ok(Box::new(DataType::new(&thin_type)))
+}
+
+pub fn create_map_type(
+    key_type: &Box<DataType>,
+    value_type: &Box<DataType>,
+) -> OrcResult<Box<DataType>> {
+    let thin_type = ThinType::Map(key_type.clone(), value_type.clone());
+    Ok(Box::new(DataType::new(&thin_type)))
+}
+
+// Create new union type with no fields
+pub fn create_union_type() -> OrcResult<Box<DataType>> {
+    let thin_type = ThinType::Union(Vec::new());
+    Ok(Box::new(DataType::new(&thin_type)))
 }
 
 #[cfg(test)]
