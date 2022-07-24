@@ -159,7 +159,7 @@ pub struct DataType {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Field {
     pub name: String,
-    pub datatype: Box<DataType>,
+    pub data_type: DataType,
 }
 
 impl DataType {
@@ -191,7 +191,7 @@ impl DataType {
             },
             ThinType::Struct(f) => {
                 if child_id < self.subtype_count {
-                    Ok(f[child_id].datatype.clone())
+                    Ok(Box::new(f[child_id].data_type.clone()))
                 } else {
                     Err(OrcError::DataTypeError("Index out of bound.".to_string()))
                 }
@@ -250,6 +250,20 @@ impl DataType {
             )),
         }
     }
+
+    // pub fn add_struct_field(&mut self, field: Box<Field>)-> OrcResult<()> {
+    //     match &(self.thin_type) {
+    //         ThinType::Struct(fields) => {
+    //             //field.data_type.parent = Box::new(&self);
+    //             fields.push(field);
+    //             self.subtype_count += 1;
+    //             Ok(())
+    //         },
+    //         _ => Err(OrcError::DataTypeError(
+    //             "add_struct_field can not be called on DataTypes other than fields.".to_string(),
+    //         )),
+    //     }
+    // }
 }
 
 /// Create numerous DataTypes
