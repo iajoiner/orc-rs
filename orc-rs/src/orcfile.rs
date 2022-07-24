@@ -8,5 +8,6 @@ pub mod orc_proto {
 }
 
 pub fn is_orc_file(path: &str) -> bool {
-    let mut f = File::open(path)?
+    let mut f = File::open(path)?;
+    
 }
